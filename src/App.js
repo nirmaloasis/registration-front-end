@@ -1,9 +1,8 @@
 import React, { Component } from 'react';
 import {Button,ButtonToolbar,MenuItem,DropdownButton} from 'react-bootstrap'
 import NavbarBase from "./NavbarBase";
+import axios from 'axios'
 var DatePicker = require("react-bootstrap-date-picker");
-
-
 var Recaptcha = require('react-recaptcha');
 
 
@@ -12,13 +11,15 @@ class App extends Component {
     super(props)
     this.state = {
       action:"signIn",
-      captchaToggle:false
+      captchaToggle:false,
+      enableVerification:false
     };
     this.changeAction = this.changeAction.bind(this);
     this.callback = this.callback.bind(this);
     this.verifyCallback = this.verifyCallback.bind(this);
     this.loginSubmit = this.loginSubmit.bind(this);
     this.validation = this.validation.bind(this);
+    this.signUp = this.signUp.bind(this);
   }
   changeAction(){
     var x = (this.state.action =="signUp")?"signIn":"signUp"
@@ -41,17 +42,66 @@ class App extends Component {
     else 
       return ""
   }
+  signUp(){
+   var username = this.refs.signUpusername.value;
+    var password = this.refs.signUppassword.value;
+    var email = this.refs.signUpemail.value;
+    var dob = this.refs.signUpdob.value;
+    var roleType = this.refs.roleType.value;
+     this.setState({action:"loader"})
+     var message = this.validation(username,password);
+     if(message != "")
+       alert(message);
+    else{
+      axios.post('localhost:9000/enroll', {
+        username:username,
+        password:password,
+        email:email,
+        dob:dob,
+        role:roleType
+      })
+      .then(function (response) {
+        if(response.data.enabled == 2){
+          alert("This username exists")
+          update({action:"signUp"})
+        }
+        else{
+          update({action:"dashboard",enableVerification:""+response.data.enabled})
+        }
+
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
+    }
+
+  }
   loginSubmit(){
     var username = this.refs.loginUsername.value;
     var password = this.refs.loginPassword.value;
+    var update = this.setState.bind(this);
     var message = this.validation(username,password);
-    
+    this.setState({action:"loader"})
     if(message != "")
        alert(message);
     else{
       this.refs.loginUsername.value="";
       this.refs.loginPassword.value=""
-      this.setState({action:"loader"})
+       axios.post('localhost:9000/login', {
+        username:username,
+        password:password
+      })
+      .then(function (response) {
+        if(response.data != "failure")
+          update({action:"dashboard",enableVerification:response.data})
+        else{
+          alert("Incorrect username and password");
+          update({action:"signIn"})
+        }
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
     }
     
 
@@ -73,20 +123,20 @@ class App extends Component {
     
        <form className="form">
         <div className="form__group">
-            <input type="text" placeholder="Username" className="form__input" />
+            <input type="text" ref="signUpusername" placeholder="Username" className="form__input" />
         </div>
         
         <div className="form__group">
-            <input type="email" placeholder="Email" className="form__input" />
+            <input type="email" ref="signUpemail" placeholder="Email" className="form__input" />
         </div>
         
         <div className="form__group">
-            <input type="password" placeholder="Password" className="form__input" />
+            <input type="password" ref="signUppassword" placeholder="Password" className="form__input" />
         </div>
            <div className="form__group">
-        <DatePicker placeholder="Date of Birth" id="datepicker"/>
+        <DatePicker placeholder="Date of Birth" ref="signUpdob" id="datepicker"/>
         </div>
-        <div className="form__group">
+        <div className="form__group" ref="roleType">
          <select id="soft">
            <option>Select an type of user</option>
           <option value="type1">Type 1</option>
@@ -104,7 +154,7 @@ class App extends Component {
           
         />
          <br></br>
-        <button className="btn" type="button">Register</button>
+        <button className="btn" type="button" onClick={this.signUp}>Register</button>
         
         <Button bsStyle="primary" bsSize="xsmall" onClick={this.changeAction}>Login</Button>
     </form>
@@ -124,7 +174,7 @@ class App extends Component {
     <div className="form__group">
             <input type="password" ref="loginPassword" placeholder="Password" className="form__input" />
         </div>
-        
+        <br></br>
         <Recaptcha
           ref= "captcha"
           sitekey="6LduGSwUAAAAALPKPeTjZ0iHKOALkNf_lMesSlLG"
@@ -144,11 +194,15 @@ class App extends Component {
     return(
       <div >
         <NavbarBase logout={this.logout}/>
+        {(this.state.enableVerification == "0")?<label className="btn"  >you need to verify your email</label>:<div></div>}
        </div> 
     )
    case "loader":
     return(
-      <div class="loading">Loading&#8230;</div>
+      <div>
+               <div className="loader"></div>
+               <div id="loaderText">Loading Data for you .....</div>
+        </div>
     )  
 
     }
